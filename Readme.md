@@ -8,3 +8,6 @@ The main objective is compatibility with https://github.com/OpenZeppelin/openzep
 Useful tools:
 - https://lab.miguelmota.com/merkletreejs/example/
 - https://emn178.github.io/online-tools/keccak_256.html
+
+
+[![Rust](https://github.com/evilrobotindustries/merkle-tree/actions/workflows/rust.yml/badge.svg)](https://github.com/evilrobotindustries/merkle-tree/actions/workflows/rust.yml)
