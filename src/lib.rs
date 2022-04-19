@@ -1,17 +1,20 @@
-use sha3::Digest;
+use crate::hash_functions::HashFunction;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 
-type Bytes = [u8];
-type MerkleProof<T: Hasher> = Vec<T::Hash>;
+mod hash_functions;
 
-pub struct MerkleTree<T: Hasher> {
+type Bytes = [u8];
+#[allow(type_alias_bounds)]
+type MerkleProof<T: HashFunction> = Vec<T::Hash>;
+
+pub struct MerkleTree<T: HashFunction> {
     leaves: Vec<T::Hash>,
     layers: Vec<Vec<T::Hash>>,
     phantom: PhantomData<T>,
 }
 
-impl<T: Hasher> MerkleTree<T> {
+impl<T: HashFunction> MerkleTree<T> {
     pub fn new(leaves: &[&Bytes]) -> Self {
         // Hash and sort leaves
         let mut leaves: Vec<T::Hash> = leaves.iter().map(|l| MerkleTree::<T>::hash(l)).collect();
@@ -147,7 +150,7 @@ impl<T: Hasher> MerkleTree<T> {
     }
 }
 
-impl<T: Hasher> Display for MerkleTree<T> {
+impl<T: HashFunction> Display for MerkleTree<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // Loop through layers, building nodes
         let layers = self.layers_hex_encoded();
@@ -218,49 +221,11 @@ impl<T: Hasher> Display for MerkleTree<T> {
     }
 }
 
-pub trait Hasher: Default {
-    type Hash: Copy + PartialEq + Into<Vec<u8>> + TryFrom<Vec<u8>> + Ord + Default + AsRef<[u8]>;
-
-    fn hash(value: &[u8]) -> Self::Hash;
-}
-
-pub struct Keccak256 {}
-
-impl Default for Keccak256 {
-    fn default() -> Self {
-        Self {}
-    }
-}
-
-impl Hasher for Keccak256 {
-    type Hash = [u8; 32];
-
-    fn hash(value: &[u8]) -> Self::Hash {
-        let mut hasher = sha3::Keccak256::default();
-        hasher.update(value);
-        hasher.finalize().into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::{Bytes, Keccak256, MerkleTree};
+    use crate::hash_functions::Keccak256;
+    use crate::{Bytes, MerkleTree};
     use primitive_types::H160;
-
-    #[test]
-    fn letters() {
-        let leaves: Vec<&Bytes> = ["a", "b", "c"].iter().map(|x| x.as_bytes()).collect();
-        test(leaves, 2)
-    }
-
-    #[test]
-    fn numbers() {
-        let leaves: Vec<&Bytes> = ["1", "2", "3", "4", "5"]
-            .iter()
-            .map(|x| x.as_bytes())
-            .collect();
-        test(leaves, 1)
-    }
 
     #[test]
     fn addresses() {
@@ -272,12 +237,27 @@ mod tests {
         test(addresses.iter().map(|a| a.as_bytes()).collect(), 0)
     }
 
+    #[test]
+    fn letters() {
+        let leaves: Vec<&Bytes> = ["a", "b", "c"].iter().map(|x| x.as_bytes()).collect();
+        test(leaves, 2)
+    }
+
+    #[test]
+    fn numbers() {
+        let leaves: Vec<&Bytes> =
+            [&[1u8][..], &[2u8][..], &[3u8][..], &[4u8][..], &[5u8][..]].to_vec();
+        test(leaves, 1)
+    }
+
     fn test(leaves: Vec<&Bytes>, index: usize) {
         let tree = MerkleTree::<Keccak256>::new(&leaves);
         let root = tree.root();
         println!("Root\n0x{}\n", hex::encode(root));
 
+        let count = leaves.len();
         let leaves = tree.leaves();
+        assert_eq!(leaves.len(), count);
         let leaf = leaves[index];
         println!(
             "Leaves\n{:?}\n",
